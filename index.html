@@ -61,16 +61,19 @@ fetch(CSV_URL)
       // handles quoted commas safely
       const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
 
-      const EventTitle  = cols[0]?.replace(/"/g,"");
-      const ImageUrl = cols[1];
-      const EventDate   = cols[2];
+      const EventTitle = cols[0]?.replace(/"/g,"");
+      // RENAMED ImageUrl to RawImageUrl to avoid redeclaration error
+      const RawImageUrl = cols[1]; 
+      const EventDate    = cols[2];
       const Location  = cols[3];
       const PosterArtist = cols[4];
 
       // extract Drive file ID
-      const match = ImageUrl && ImageUrl.match(/\/d\/([^/]+)/);
+      // Using RawImageUrl here
+      const match = RawImageUrl && RawImageUrl.match(/\/d\/([^/]+)/);
       if (!match) return;
 
+      // New ImageUrl variable for the direct link
       const ImageUrl = `https://drive.google.com/uc?export=view&id=${match[1]}`;
 
       const section = document.createElement("section");
