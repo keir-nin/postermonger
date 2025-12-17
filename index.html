@@ -1,96 +1,76 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Gallery</title>
-  <style>
-    /* Mobile First & Minimal CSS */
-    body { margin: 0; background: #000; color: #fff; font-family: sans-serif; }
-    main { max-width: 720px; margin: 0 auto; padding: 1rem; }
-    figure { margin: 0 0 2rem 0; }
-    /* loading="lazy" is set in script, but it's good to keep image essentials here */
-    img { width: 100%; height: auto; display: block; border-radius: 6px; } 
-    figcaption { margin-top: 0.4rem; }
-    h2 { font-size: 1.05rem; font-weight: 500; margin: 0 0 0.1rem 0; }
-    .meta { font-size: 0.85rem; color: #aaa; }
-  </style>
-</head>
-<body>
-  <main id="g"></main>
+<script>
+    const CSV_URL =
+      "https://docs.google.com/spreadsheets/d/e/2PACX-1vTscIx1SHt5f_UZZo20nss_w-aFiXxIR2vZoPuJlLB_BRL0mM7AUMos3OurpLtzNbS0c2P6ft-4MgTt/pub?gid=559573632&single=true&output=csv";
 
-  <script>
-    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTscIx1SHt5f_UZZo20nss_w-aFiXxIR2vZoPuJlLB_BRL0mM7AUMos3OurpLtzNbS0c2P6ft-4MgTt/pub?gid=559573632&single=true&output=csv";
-    const CSV_SPLIT_REGEX = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/; // Robust CSV split
-    
-    // Define the required columns: [CSV Header Name]: [Local Variable Name]
-    const REQUIRED_COLS = {
-      "EventTitle": 'title',
-      "ImageID": 'fileId',
-      "EventDate": 'date',
-      "Location": 'venue',
-      "PosterArtist": 'artist',
+    // Helper function to safely split CSV rows, handling quoted commas
+    const splitCSVRow = (row) => {
+      // RegEx: split by comma, but only if it's not inside a pair of double quotes
+      return row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
     };
 
-    (async () => {
-      const g = document.getElementById('g'); // g for gallery
+    fetch(CSV_URL)
+      .then(res => res.text())
+      .then(csv => {
+        // Split all lines and filter out empty ones
+        const allRows = csv.split("\n").filter(r => r.trim());
+        if (allRows.length === 0) return;
 
-      try {
-        const res = await fetch(CSV_URL);
-        if (!res.ok) throw new Error("Fetch failed.");
-        const rows = (await res.text()).trim().split('\n').filter(r => r);
+        // 1. Get the header row and map column names to their indices
+        const headerRow = splitCSVRow(allRows[0]);
+        const columnIndex = {};
+        headerRow.forEach((colName, index) => {
+          // Store the name without quotes and trimmed
+          columnIndex[colName.replace(/"/g, "").trim()] = index;
+        });
 
-        if (rows.length < 2) return;
-
-        // 1. Map header indices dynamically to the short variable names (I)
-        const header = rows[0].split(CSV_SPLIT_REGEX).map(h => h.replace(/"/g, '').trim());
+        // 2. Identify the required column indices
+        const TITLE_COL = columnIndex["Title"];
+        // *** CHANGE IS HERE: Use the ImageID column index ***
+        const IMAGE_ID_COL = columnIndex["ImageID"]; 
+        const DATE_COL = columnIndex["Date"];
+        const VENUE_COL = columnIndex["Venue"];
+        const ARTIST_COL = columnIndex["Artist"];
         
-        const I = {}; 
-        for (const [headerName, varName] of Object.entries(REQUIRED_COLS)) {
-            I[varName] = header.indexOf(headerName);
+        // Ensure the ImageID column exists
+        if (IMAGE_ID_COL === undefined) {
+          console.error("CSV does not contain an 'ImageID' column.");
+          return;
         }
-        
-        if (I.fileId < 0) return console.error("ImageID column not found.");
-        
-        // 2. Reduce the data rows into a single HTML string
-        const html = rows.slice(1).reduce((acc, row) => {
-          const cols = row.split(CSV_SPLIT_REGEX);
-          
-          // Helper function for extraction (clean and remove quotes)
-          const extract = (idx) => cols[idx]?.replace(/"/g, '').trim() || '';
 
-          const fileId = extract(I.fileId); 
-          if (!fileId) return acc; // Skip if no ID
+        const gallery = document.getElementById("gallery");
 
-          const title = extract(I.title);
-          const date = extract(I.date);
-          const venue = extract(I.venue);
-          const artist = extract(I.artist);
-          
-          // Construct URL and meta string
-          const imgUrl = `https://drive.google.com/uc?download=view&id=${fileId}`;
-          const meta = [date, venue, artist].filter(n => n).join(' · ');
+        // 3. Process data rows (starting from index 1 after the header)
+        for (let i = 1; i < allRows.length; i++) {
+          const row = allRows[i];
+          const cols = splitCSVRow(row);
 
-          // Append to accumulator (using template literal for clean HTML)
-          return acc + `
-            <figure>
-              <img src="${imgUrl}" alt="${title}" loading="lazy">
-              <figcaption>
-                <h2>${title}</h2>
-                <div class="meta">${meta}</div>
-              </figcaption>
-            </figure>
+          // Safely extract data, removing surrounding quotes
+          const extract = (colIndex) => cols[colIndex]?.replace(/"/g, "") || "";
+
+          const title = extract(TITLE_COL);
+          // *** CHANGE IS HERE: Get the raw ID instead of the raw URL ***
+          const fileId = extract(IMAGE_ID_COL); 
+          const date = extract(DATE_COL);
+          const venue = extract(VENUE_COL);
+          const artist = extract(ARTIST_COL);
+
+          if (!fileId) continue; // Skip if no ID is present
+
+          // Construct the direct embed URL using the isolated File ID
+          // The format is: https://drive.google.com/uc?export=view&id=FILE_ID
+          const imgUrl =
+            "https://drive.google.com/uc?export=view&id=" + fileId;
+
+          const figure = document.createElement("figure");
+          figure.innerHTML = `
+            <img src="${imgUrl}" alt="${title}">
+            <figcaption>
+              <h2>${title}</h2>
+              <div class="meta">${date} · ${venue} · ${artist}</div>
+            </figcaption>
           `;
-        }, '');
 
-        // 3. Single DOM Write
-        g.innerHTML = html;
-
-      } catch (e) {
-        console.error("Gallery loading error:", e);
-        g.innerHTML = "<p>Data failed to load.</p>";
-      }
-    })();
+          gallery.appendChild(figure);
+        }
+      });
   </script>
-</body>
-</html>
