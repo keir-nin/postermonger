@@ -1,123 +1,94 @@
-<script>
-    // Constants for configuration and required column names
-    const CSV_URL =
-      "https://docs.google.com/spreadsheets/d/e/2PACX-1vTscIx1SHt5f_UZZo20nss_w-aFiXxIR2vZoPuJlLB_BRL0mM7AUMos3OurpLtzNbS0c2P6ft-4MgTt/pub?gid=559573632&single=true&output=csv";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gallery</title>
+  <style>
+    /* Mobile First & Minimal CSS */
+    body { margin: 0; background: #000; color: #fff; font-family: sans-serif; }
+    main { max-width: 720px; margin: 0 auto; padding: 1rem; }
+    figure { margin: 0 0 2rem 0; }
+    img { width: 100%; height: auto; display: block; border-radius: 6px; loading: lazy; }
+    figcaption { margin-top: 0.4rem; }
+    h2 { font-size: 1.05rem; font-weight: 500; margin: 0 0 0.1rem 0; }
+    .meta { font-size: 0.85rem; color: #aaa; }
+  </style>
+</head>
+<body>
+  <main id="g"></main>
+
+  <script>
+    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTscIx1SHt5f_UZZo20nss_w-aFiXxIR2vZoPuJlLB_BRL0mM7AUMos3OurpLtzNbS0c2P6ft-4MgTt/pub?gid=559573632&single=true&output=csv";
+    const CSV_SPLIT_REGEX = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/; // Robust CSV split
     
-    const GALLERY_ELEMENT_ID = "gallery";
-
-    // --- Core Utility Functions ---
-
-    /**
-     * Safely splits a CSV row, handling quoted commas within fields.
-     * @param {string} row - The CSV row string.
-     * @returns {string[]} An array of column values.
-     */
-    const splitCSVRow = (row) => {
-      // RegEx: split by comma, but only if it's not inside an even number of double quotes.
-      return row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+    // Define the required columns and map them to cleaner variable names
+    const REQUIRED_COLS = {
+      EventTitle: 'title',
+      ImageID: 'fileId',
+      EventDate: 'date',
+      Location: 'venue',
+      PosterArtist: 'artist',
     };
 
-    /**
-     * Creates the HTML structure for a single poster figure.
-     * @param {Object} data - Object containing poster data (title, fileId, date, venue, artist).
-     * @returns {string} The complete <figure> HTML string.
-     */
-    const createFigureHtml = ({ title, fileId, date, venue, artist }) => {
-      // Construct the direct embed URL using the isolated File ID
-      const imgUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
-      const safeTitle = title.replace(/"/g, "").trim();
-      const metaText = [date, venue, artist].filter(n => n).join(" · ");
-
-      return `
-        <figure>
-          <img src="${imgUrl}" alt="${safeTitle}" loading="lazy">
-          <figcaption>
-            <h2>${safeTitle}</h2>
-            <div class="meta">${metaText}</div>
-          </figcaption>
-        </figure>
-      `;
-    };
-    
-    // --- Main Execution Function ---
-
-    /**
-     * Fetches CSV, parses data, and injects content into the DOM.
-     */
-    async function loadGallery() {
-      const gallery = document.getElementById(GALLERY_ELEMENT_ID);
-      if (!gallery) {
-        console.error(`Gallery element with ID '${GALLERY_ELEMENT_ID}' not found.`);
-        return;
-      }
+    (async () => {
+      const g = document.getElementById('g'); // g for gallery
 
       try {
-        const response = await fetch(CSV_URL);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const csv = await response.text();
-        
-        const allRows = csv.split("\n").filter(r => r.trim());
-        if (allRows.length < 2) { // Need header and at least one data row
-            console.warn("CSV is empty or only contains a header.");
-            return;
-        }
+        const res = await fetch(CSV_URL);
+        if (!res.ok) throw new Error("Fetch failed.");
+        const rows = (await res.text()).trim().split('\n').filter(r => r);
 
-        // 1. Map header columns to their indices
-        const headerRow = splitCSVRow(allRows[0]);
-        const columnIndex = Object.fromEntries(
-            headerRow.map((colName, index) => [colName.replace(/"/g, "").trim(), index])
+        if (rows.length < 2) return;
+
+        // 1. Map header indices dynamically (essential for lean robustness)
+        const header = rows[0].split(CSV_SPLIT_REGEX).map(h => h.replace(/"/g, '').trim());
+        const I = Object.fromEntries(
+          Object.keys(REQUIRED_COLS).map(colName => [REQUIRED_COLS[colName], header.indexOf(colName)])
         );
-
-        // Define column indices based on header names (case sensitive)
-        const COLUMN_MAP = {
-            TITLE: columnIndex["Title"],
-            IMAGE_ID: columnIndex["ImageID"],
-            DATE: columnIndex["Date"],
-            VENUE: columnIndex["Venue"],
-            ARTIST: columnIndex["Artist"],
-        };
-
-        if (COLUMN_MAP.IMAGE_ID === undefined) {
-          console.error("Required column 'ImageID' not found in CSV header.");
-          return;
-        }
-
-        let allFiguresHtml = ""; // Use a string buffer to minimize DOM writes
-
-        // 2. Process data rows (starting from index 1 after the header)
-        for (let i = 1; i < allRows.length; i++) {
-          const cols = splitCSVRow(allRows[i]);
-
-          // Function to safely extract and clean a column value
-          const extract = (colIndex) => cols[colIndex]?.replace(/"/g, "").trim() || "";
-
-          const fileId = extract(COLUMN_MAP.IMAGE_ID);
-          
-          if (!fileId) continue; // Skip rows without a valid image ID
-
-          const posterData = {
-            title: extract(COLUMN_MAP.TITLE),
-            fileId: fileId,
-            date: extract(COLUMN_MAP.DATE),
-            venue: extract(COLUMN_MAP.VENUE),
-            artist: extract(COLUMN_MAP.ARTIST),
-          };
-
-          allFiguresHtml += createFigureHtml(posterData);
-        }
         
-        // 3. Single, highly efficient DOM update
-        gallery.innerHTML = allFiguresHtml;
+        // Ensure ImageID column exists
+        if (I.fileId < 0) return console.error("ImageID column not found.");
+        
+        // 2. Reduce the data rows into a single HTML string
+        const html = rows.slice(1).reduce((acc, row) => {
+          const cols = row.split(CSV_SPLIT_REGEX);
+          
+          // Helper function for extraction (clean and remove quotes)
+          const extract = (idx) => cols[idx]?.replace(/"/g, '').trim() || '';
 
-      } catch (error) {
-        console.error("Failed to load or parse gallery data:", error);
-        // Optionally display an error message to the user
-        gallery.innerHTML = "<p style='color: red;'>Could not load gallery content.</p>";
+          const fileId = extract(I.fileId);
+          if (!fileId) return acc; // Skip if no ID
+
+          const title = extract(I.title);
+          const date = extract(I.date);
+          const venue = extract(I.venue);
+          const artist = extract(I.artist);
+          
+          // Construct URL and meta string
+          const imgUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
+          const meta = [date, venue, artist].filter(n => n).join(' · ');
+
+          // Append to accumulator (using template literal for clean HTML)
+          return acc + `
+            <figure>
+              <img src="${imgUrl}" alt="${title}">
+              <figcaption>
+                <h2>${title}</h2>
+                <div class="meta">${meta}</div>
+              </figcaption>
+            </figure>
+          `;
+        }, '');
+
+        // 3. Single DOM Write
+        g.innerHTML = html;
+
+      } catch (e) {
+        console.error("Gallery loading error:", e);
+        g.innerHTML = "<p>Data failed to load.</p>";
       }
-    }
-
-    // Execute the main function after the script loads
-    loadGallery();
+    })();
   </script>
+</body>
+</html>
