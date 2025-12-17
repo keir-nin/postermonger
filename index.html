@@ -1,59 +1,55 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Postermonger</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Postermonger</title>
 
-  <style>
-    /* absolute essentials only */
-    body {
-      margin: 0;
-      background: #000;
-      color: #fff;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-    }
+<style>
+  /* absolute minimum, mobile-first */
+  body {
+    margin: 0;
+    background: #000;
+    color: #fff;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  }
 
-    main {
-      max-width: 720px;
-      margin: 0 auto;
-      padding: 1rem;
-    }
+  main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 1rem;
+  }
 
-    figure {
-      margin: 0 0 2rem 0;
-    }
+  section {
+    margin-bottom: 2rem;
+  }
 
-    img {
-      width: 100%;
-      height: auto;
-      display: block;
-      border-radius: 6px;
-    }
+  img {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 6px;
+  }
 
-    figcaption {
-      margin-top: 0.4rem;
-    }
+  h2 {
+    font-size: 1.1rem;
+    margin: 0.4rem 0 0.1rem;
+    font-weight: 500;
+  }
 
-    h2 {
-      font-size: 1.05rem;
-      font-weight: 500;
-      margin: 0 0 0.1rem 0;
-    }
-
-    .meta {
-      font-size: 0.85rem;
-      color: #aaa;
-    }
-  </style>
+  .meta {
+    font-size: 0.85rem;
+    color: #aaa;
+  }
+</style>
 </head>
 
 <body>
-  <main id="gallery"></main>
+<main id="gallery"></main>
 
-  <script>
-    const CSV_URL =
-      "https://docs.google.com/spreadsheets/d/e/2PACX-1vTscIx1SHt5f_UZZo20nss_w-aFiXxIR2vZoPuJlLB_BRL0mM7AUMos3OurpLtzNbS0c2P6ft-4MgTt/pub?gid=559573632&single=true&output=csv";
+<script>
+const CSV_URL =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vTscIx1SHt5f_UZZo20nss_w-aFiXxIR2vZoPuJlLB_BRL0mM7AUMos3OurpLtzNbS0c2P6ft-4MgTt/pub?gid=559573632&single=true&output=csv";
 
 fetch(CSV_URL)
   .then(res => res.text())
@@ -79,7 +75,7 @@ fetch(CSV_URL)
 
       const section = document.createElement("section");
       section.innerHTML = `
-        <img src="${Image_ID}" alt="${EventTitle}">
+        <img src="${ImageUrl}" alt="${EventTitle}">
         <h2>${EventTitle}</h2>
         <div class="meta">${EventDate} · ${Location} · ${PosterArtist}</div>
       `;
@@ -87,6 +83,6 @@ fetch(CSV_URL)
       gallery.appendChild(section);
     });
   });
-  </script>
+</script>
 </body>
 </html>
