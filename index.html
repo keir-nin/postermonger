@@ -1,88 +1,98 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Postermonger</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Postermonger</title>
 
-<style>
-  /* absolute minimum, mobile-first */
-  body {
-    margin: 0;
-    background: #000;
-    color: #fff;
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  }
+  <style>
+    /* absolute essentials only */
+    body {
+      margin: 0;
+      background: #000;
+      color: #fff;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
 
-  main {
-    max-width: 720px;
-    margin: 0 auto;
-    padding: 1rem;
-  }
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 1rem;
+    }
 
-  section {
-    margin-bottom: 2rem;
-  }
+    figure {
+      margin: 0 0 2rem 0;
+    }
 
-  img {
-    width: 100%;
-    height: auto;
-    display: block;
-    border-radius: 6px;
-  }
+    img {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 6px;
+    }
 
-  h2 {
-    font-size: 1.1rem;
-    margin: 0.4rem 0 0.1rem;
-    font-weight: 500;
-  }
+    figcaption {
+      margin-top: 0.4rem;
+    }
 
-  .meta {
-    font-size: 0.85rem;
-    color: #aaa;
-  }
-</style>
+    h2 {
+      font-size: 1.05rem;
+      font-weight: 500;
+      margin: 0 0 0.1rem 0;
+    }
+
+    .meta {
+      font-size: 0.85rem;
+      color: #aaa;
+    }
+  </style>
 </head>
 
 <body>
-<main id="gallery"></main>
+  <main id="gallery"></main>
 
-<script>
-const CSV_URL =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vTscIx1SHt5f_UZZo20nss_w-aFiXxIR2vZoPuJlLB_BRL0mM7AUMos3OurpLtzNbS0c2P6ft-4MgTt/pub?gid=559573632&single=true&output=csv";
+  <script>
+    const CSV_URL =
+      "https://docs.google.com/spreadsheets/d/e/2PACX-1vTscIx1SHt5f_UZZo20nss_w-aFiXxIR2vZoPuJlLB_BRL0mM7AUMos3OurpLtzNbS0c2P6ft-4MgTt/pub?gid=559573632&single=true&output=csv";
 
-fetch(CSV_URL)
-  .then(res => res.text())
-  .then(csv => {
-    const rows = csv.split("\n").slice(1).filter(r => r.trim());
-    const gallery = document.getElementById("gallery");
+    fetch(CSV_URL)
+      .then(res => res.text())
+      .then(csv => {
+        const rows = csv.split("\n").slice(1).filter(r => r.trim());
+        const gallery = document.getElementById("gallery");
 
-    rows.forEach(row => {
-      // handles quoted commas safely
-      const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+        rows.forEach(row => {
+          // split CSV safely (handles quoted commas)
+          const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
 
-      const EventTitle  = cols[0]?.replace(/"/g,"");
-      const Image_ID = cols[1];
-      const EventDate   = cols[2];
-      const Location  = cols[3];
-      const PosterArtist = cols[4];
+          // column mapping based on your sheet
+          const title  = cols[0]?.replace(/"/g, "");
+          const imgRaw = cols[1];
+          const date   = cols[2];
+          const venue  = cols[3];
+          const artist = cols[4];
 
-      // extract Drive file ID
-      const match = ImageUrl && ImageUrl.match(/\/d\/([^/]+)/);
-      if (!match) return;
+          if (!imgRaw) return;
 
-      const ImageUrl = `https://drive.google.com/uc?export=view&id=${match[1]}`;
+          // extract Google Drive file ID
+          const match = imgRaw.match(/\/d\/([^/]+)/);
+          if (!match) return;
 
-      const section = document.createElement("section");
-      section.innerHTML = `
-        <img src="${ImageUrl}" alt="${EventTitle}">
-        <h2>${EventTitle}</h2>
-        <div class="meta">${EventDate} · ${Location} · ${PosterArtist}</div>
-      `;
+          const imgUrl =
+            "https://drive.google.com/uc?export=view&id=" + match[1];
 
-      gallery.appendChild(section);
-    });
-  });
-</script>
+          const figure = document.createElement("figure");
+          figure.innerHTML = `
+            <img src="${imgUrl}" alt="${title}">
+            <figcaption>
+              <h2>${title}</h2>
+              <div class="meta">${date} · ${venue} · ${artist}</div>
+            </figcaption>
+          `;
+
+          gallery.appendChild(figure);
+        });
+      });
+  </script>
 </body>
 </html>
