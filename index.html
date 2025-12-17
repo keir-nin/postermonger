@@ -1,57 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Postermonger</title>
-
-  <style>
-    /* absolute essentials only */
-    body {
-      margin: 0;
-      background: #000;
-      color: #fff;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-    }
-
-    main {
-      max-width: 720px;
-      margin: 0 auto;
-      padding: 1rem;
-    }
-
-    figure {
-      margin: 0 0 2rem 0;
-    }
-
-    img {
-      width: 100%;
-      height: auto;
-      display: block;
-      border-radius: 6px;
-    }
-
-    figcaption {
-      margin-top: 0.4rem;
-    }
-
-    h2 {
-      font-size: 1.05rem;
-      font-weight: 500;
-      margin: 0 0 0.1rem 0;
-    }
-
-    .meta {
-      font-size: 0.85rem;
-      color: #aaa;
-    }
-  </style>
-</head>
-
-<body>
-  <main id="gallery"></main>
-
-  <script>
+<script>
     const CSV_URL =
       "https://docs.google.com/spreadsheets/d/e/2PACX-1vTscIx1SHt5f_UZZo20nss_w-aFiXxIR2vZoPuJlLB_BRL0mM7AUMos3OurpLtzNbS0c2P6ft-4MgTt/pub?gid=559573632&single=true&output=csv";
 
@@ -78,13 +25,15 @@
 
         // 2. Identify the required column indices
         const TITLE_COL = columnIndex["Title"];
-        const IMAGE_URL_COL = columnIndex["ImageURL"];
+        // *** CHANGE IS HERE: Use the ImageID column index ***
+        const IMAGE_ID_COL = columnIndex["ImageID"]; 
         const DATE_COL = columnIndex["Date"];
         const VENUE_COL = columnIndex["Venue"];
         const ARTIST_COL = columnIndex["Artist"];
-        // Ensure the ImageURL column exists
-        if (IMAGE_URL_COL === undefined) {
-          console.error("CSV does not contain an 'ImageURL' column.");
+        
+        // Ensure the ImageID column exists
+        if (IMAGE_ID_COL === undefined) {
+          console.error("CSV does not contain an 'ImageID' column.");
           return;
         }
 
@@ -99,21 +48,18 @@
           const extract = (colIndex) => cols[colIndex]?.replace(/"/g, "") || "";
 
           const title = extract(TITLE_COL);
-          const imgRaw = extract(IMAGE_URL_COL); // Use the dynamically found index
+          // *** CHANGE IS HERE: Get the raw ID instead of the raw URL ***
+          const fileId = extract(IMAGE_ID_COL); 
           const date = extract(DATE_COL);
           const venue = extract(VENUE_COL);
           const artist = extract(ARTIST_COL);
 
-          if (!imgRaw) continue;
+          if (!fileId) continue; // Skip if no ID is present
 
-          // Extract Google Drive file ID from the URL (works for both share/drive_link)
-          // e.g., from .../d/FILE_ID/...
-          const match = imgRaw.match(/\/d\/([^/]+)/);
-          if (!match) continue;
-
-          // Correct URL for direct image embedding: /uc?export=view&id=FILE_ID
+          // Construct the direct embed URL using the isolated File ID
+          // The format is: https://drive.google.com/uc?export=view&id=FILE_ID
           const imgUrl =
-            "https://drive.google.com/uc?export=view&id=" + match[1];
+            "https://drive.google.com/uc?export=view&id=" + fileId;
 
           const figure = document.createElement("figure");
           figure.innerHTML = `
@@ -128,5 +74,3 @@
         }
       });
   </script>
-</body>
-</html>
