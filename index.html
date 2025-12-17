@@ -55,29 +55,63 @@
     const CSV_URL =
       "https://docs.google.com/spreadsheets/d/e/2PACX-1vTscIx1SHt5f_UZZo20nss_w-aFiXxIR2vZoPuJlLB_BRL0mM7AUMos3OurpLtzNbS0c2P6ft-4MgTt/pub?gid=559573632&single=true&output=csv";
 
+    // Helper function to safely split CSV rows, handling quoted commas
+    const splitCSVRow = (row) => {
+      // RegEx: split by comma, but only if it's not inside a pair of double quotes
+      return row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+    };
+
     fetch(CSV_URL)
       .then(res => res.text())
       .then(csv => {
-        const rows = csv.split("\n").slice(1).filter(r => r.trim());
+        // Split all lines and filter out empty ones
+        const allRows = csv.split("\n").filter(r => r.trim());
+        if (allRows.length === 0) return;
+
+        // 1. Get the header row and map column names to their indices
+        const headerRow = splitCSVRow(allRows[0]);
+        const columnIndex = {};
+        headerRow.forEach((colName, index) => {
+          // Store the name without quotes and trimmed
+          columnIndex[colName.replace(/"/g, "").trim()] = index;
+        });
+
+        // 2. Identify the required column indices
+        const TITLE_COL = columnIndex["Title"];
+        const IMAGE_URL_COL = columnIndex["ImageURL"];
+        const DATE_COL = columnIndex["Date"];
+        const VENUE_COL = columnIndex["Venue"];
+        const ARTIST_COL = columnIndex["Artist"];
+        // Ensure the ImageURL column exists
+        if (IMAGE_URL_COL === undefined) {
+          console.error("CSV does not contain an 'ImageURL' column.");
+          return;
+        }
+
         const gallery = document.getElementById("gallery");
 
-        rows.forEach(row => {
-          // split CSV safely (handles quoted commas)
-          const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+        // 3. Process data rows (starting from index 1 after the header)
+        for (let i = 1; i < allRows.length; i++) {
+          const row = allRows[i];
+          const cols = splitCSVRow(row);
 
-          // column mapping based on your sheet
-          const title  = cols[0]?.replace(/"/g, "");
-          const imgRaw = cols[1];
-          const date   = cols[2];
-          const venue  = cols[3];
-          const artist = cols[4];
+          // Safely extract data, removing surrounding quotes
+          const extract = (colIndex) => cols[colIndex]?.replace(/"/g, "") || "";
 
-          if (!imgRaw) return;
+          const title = extract(TITLE_COL);
+          const imgRaw = extract(IMAGE_URL_COL); // Use the dynamically found index
+          const date = extract(DATE_COL);
+          const venue = extract(VENUE_COL);
+          const artist = extract(ARTIST_COL);
 
-          // extract Google Drive file ID
+          if (!imgRaw) continue;
+
+          // Extract Google Drive file ID from the URL (works for both share/drive_link)
+          // e.g., from .../d/FILE_ID/...
           const match = imgRaw.match(/\/d\/([^/]+)/);
-          if (!match) return;
+          if (!match) continue;
 
+          // Correct URL for direct image embedding: /uc?export=view&id=FILE_ID
           const imgUrl =
             "https://drive.google.com/uc?export=view&id=" + match[1];
 
@@ -91,7 +125,7 @@
           `;
 
           gallery.appendChild(figure);
-        });
+        }
       });
   </script>
 </body>
