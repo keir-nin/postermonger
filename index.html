@@ -55,41 +55,34 @@
     const CSV_URL =
       "https://docs.google.com/spreadsheets/d/e/2PACX-1vTscIx1SHt5f_UZZo20nss_w-aFiXxIR2vZoPuJlLB_BRL0mM7AUMos3OurpLtzNbS0c2P6ft-4MgTt/pub?gid=559573632&single=true&output=csv";
 
-    fetch(CSV_URL)
-      .then(res => res.text())
-      .then(csv => {
-        const rows = csv.split("\n").slice(1).filter(r => r.trim());
-        const gallery = document.getElementById("gallery");
+fetch(CSV_URL)
+  .then(res => res.text())
+  .then(csv => {
+    const rows = csv.split("\n").slice(1).filter(r => r.trim());
+    const gallery = document.getElementById("gallery");
 
-        rows.forEach(row => {
-          // split CSV safely (handles quoted commas)
-          const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+    rows.forEach(row => {
+      // handles quoted commas safely
+      const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
 
-          // column mapping based on your sheet
-          const title  = cols[0]?.replace(/"/g, "");
-          const imgRaw = cols[1];
-          const date   = cols[2];
-          const venue  = cols[3];
-          const artist = cols[4];
+      const EventTitle  = cols[0]?.replace(/"/g,"");
+      const ImageUrl = cols[1];
+      const EventDate   = cols[2];
+      const Location  = cols[3];
+      const PosterArtist = cols[4];
 
-          if (!imgRaw) return;
+      // extract Drive file ID
+      const match = ImageUrl && ImageUrl.match(/\/d\/([^/]+)/);
+      if (!match) return;
 
-          // extract Google Drive file ID
-          const match = imgRaw.match(/\/d\/([^/]+)/);
-          if (!match) return;
+      const ImageUrl = `https://drive.google.com/uc?export=view&id=${match[1]}`;
 
-          const imgUrl =
-            "https://drive.google.com/uc?export=view&id=" + match[1];
-
-          const figure = document.createElement("figure");
-          figure.innerHTML = `
-            <img src="${imgUrl}" alt="${title}">
-            <figcaption>
-              <h2>${title}</h2>
-              <div class="meta">${date} · ${venue} · ${artist}</div>
-            </figcaption>
-          `;
-
+      const section = document.createElement("section");
+      section.innerHTML = `
+        <img src="${ImageUrl}" alt="${EventTitle}">
+        <h2>${EventTitle}</h2>
+        <div class="meta">${EventDate} · ${Location} · ${PosterArtist}</div>
+      `;
           gallery.appendChild(figure);
         });
       });
