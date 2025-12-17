@@ -68,7 +68,7 @@
           const artist = extract(I.artist);
           
           // Construct URL and meta string
-          const imgUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
+          const imgUrl = `https://drive.google.com/uc?download=view&id=${fileId}`;
           const meta = [date, venue, artist].filter(n => n).join(' · ');
 
           // Append to accumulator (using template literal for clean HTML)
