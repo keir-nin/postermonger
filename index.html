@@ -1,76 +1,123 @@
 <script>
+    // Constants for configuration and required column names
     const CSV_URL =
       "https://docs.google.com/spreadsheets/d/e/2PACX-1vTscIx1SHt5f_UZZo20nss_w-aFiXxIR2vZoPuJlLB_BRL0mM7AUMos3OurpLtzNbS0c2P6ft-4MgTt/pub?gid=559573632&single=true&output=csv";
+    
+    const GALLERY_ELEMENT_ID = "gallery";
 
-    // Helper function to safely split CSV rows, handling quoted commas
+    // --- Core Utility Functions ---
+
+    /**
+     * Safely splits a CSV row, handling quoted commas within fields.
+     * @param {string} row - The CSV row string.
+     * @returns {string[]} An array of column values.
+     */
     const splitCSVRow = (row) => {
-      // RegEx: split by comma, but only if it's not inside a pair of double quotes
+      // RegEx: split by comma, but only if it's not inside an even number of double quotes.
       return row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
     };
 
-    fetch(CSV_URL)
-      .then(res => res.text())
-      .then(csv => {
-        // Split all lines and filter out empty ones
-        const allRows = csv.split("\n").filter(r => r.trim());
-        if (allRows.length === 0) return;
+    /**
+     * Creates the HTML structure for a single poster figure.
+     * @param {Object} data - Object containing poster data (title, fileId, date, venue, artist).
+     * @returns {string} The complete <figure> HTML string.
+     */
+    const createFigureHtml = ({ title, fileId, date, venue, artist }) => {
+      // Construct the direct embed URL using the isolated File ID
+      const imgUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
+      const safeTitle = title.replace(/"/g, "").trim();
+      const metaText = [date, venue, artist].filter(n => n).join(" · ");
 
-        // 1. Get the header row and map column names to their indices
-        const headerRow = splitCSVRow(allRows[0]);
-        const columnIndex = {};
-        headerRow.forEach((colName, index) => {
-          // Store the name without quotes and trimmed
-          columnIndex[colName.replace(/"/g, "").trim()] = index;
-        });
+      return `
+        <figure>
+          <img src="${imgUrl}" alt="${safeTitle}" loading="lazy">
+          <figcaption>
+            <h2>${safeTitle}</h2>
+            <div class="meta">${metaText}</div>
+          </figcaption>
+        </figure>
+      `;
+    };
+    
+    // --- Main Execution Function ---
 
-        // 2. Identify the required column indices
-        const TITLE_COL = columnIndex["Title"];
-        // *** CHANGE IS HERE: Use the ImageID column index ***
-        const IMAGE_ID_COL = columnIndex["ImageID"]; 
-        const DATE_COL = columnIndex["Date"];
-        const VENUE_COL = columnIndex["Venue"];
-        const ARTIST_COL = columnIndex["Artist"];
+    /**
+     * Fetches CSV, parses data, and injects content into the DOM.
+     */
+    async function loadGallery() {
+      const gallery = document.getElementById(GALLERY_ELEMENT_ID);
+      if (!gallery) {
+        console.error(`Gallery element with ID '${GALLERY_ELEMENT_ID}' not found.`);
+        return;
+      }
+
+      try {
+        const response = await fetch(CSV_URL);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const csv = await response.text();
         
-        // Ensure the ImageID column exists
-        if (IMAGE_ID_COL === undefined) {
-          console.error("CSV does not contain an 'ImageID' column.");
+        const allRows = csv.split("\n").filter(r => r.trim());
+        if (allRows.length < 2) { // Need header and at least one data row
+            console.warn("CSV is empty or only contains a header.");
+            return;
+        }
+
+        // 1. Map header columns to their indices
+        const headerRow = splitCSVRow(allRows[0]);
+        const columnIndex = Object.fromEntries(
+            headerRow.map((colName, index) => [colName.replace(/"/g, "").trim(), index])
+        );
+
+        // Define column indices based on header names (case sensitive)
+        const COLUMN_MAP = {
+            TITLE: columnIndex["Title"],
+            IMAGE_ID: columnIndex["ImageID"],
+            DATE: columnIndex["Date"],
+            VENUE: columnIndex["Venue"],
+            ARTIST: columnIndex["Artist"],
+        };
+
+        if (COLUMN_MAP.IMAGE_ID === undefined) {
+          console.error("Required column 'ImageID' not found in CSV header.");
           return;
         }
 
-        const gallery = document.getElementById("gallery");
+        let allFiguresHtml = ""; // Use a string buffer to minimize DOM writes
 
-        // 3. Process data rows (starting from index 1 after the header)
+        // 2. Process data rows (starting from index 1 after the header)
         for (let i = 1; i < allRows.length; i++) {
-          const row = allRows[i];
-          const cols = splitCSVRow(row);
+          const cols = splitCSVRow(allRows[i]);
 
-          // Safely extract data, removing surrounding quotes
-          const extract = (colIndex) => cols[colIndex]?.replace(/"/g, "") || "";
+          // Function to safely extract and clean a column value
+          const extract = (colIndex) => cols[colIndex]?.replace(/"/g, "").trim() || "";
 
-          const title = extract(TITLE_COL);
-          // *** CHANGE IS HERE: Get the raw ID instead of the raw URL ***
-          const fileId = extract(IMAGE_ID_COL); 
-          const date = extract(DATE_COL);
-          const venue = extract(VENUE_COL);
-          const artist = extract(ARTIST_COL);
+          const fileId = extract(COLUMN_MAP.IMAGE_ID);
+          
+          if (!fileId) continue; // Skip rows without a valid image ID
 
-          if (!fileId) continue; // Skip if no ID is present
+          const posterData = {
+            title: extract(COLUMN_MAP.TITLE),
+            fileId: fileId,
+            date: extract(COLUMN_MAP.DATE),
+            venue: extract(COLUMN_MAP.VENUE),
+            artist: extract(COLUMN_MAP.ARTIST),
+          };
 
-          // Construct the direct embed URL using the isolated File ID
-          // The format is: https://drive.google.com/uc?export=view&id=FILE_ID
-          const imgUrl =
-            "https://drive.google.com/uc?export=view&id=" + fileId;
-
-          const figure = document.createElement("figure");
-          figure.innerHTML = `
-            <img src="${imgUrl}" alt="${title}">
-            <figcaption>
-              <h2>${title}</h2>
-              <div class="meta">${date} · ${venue} · ${artist}</div>
-            </figcaption>
-          `;
-
-          gallery.appendChild(figure);
+          allFiguresHtml += createFigureHtml(posterData);
         }
-      });
+        
+        // 3. Single, highly efficient DOM update
+        gallery.innerHTML = allFiguresHtml;
+
+      } catch (error) {
+        console.error("Failed to load or parse gallery data:", error);
+        // Optionally display an error message to the user
+        gallery.innerHTML = "<p style='color: red;'>Could not load gallery content.</p>";
+      }
+    }
+
+    // Execute the main function after the script loads
+    loadGallery();
   </script>
