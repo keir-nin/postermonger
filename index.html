@@ -9,7 +9,8 @@
     body { margin: 0; background: #000; color: #fff; font-family: sans-serif; }
     main { max-width: 720px; margin: 0 auto; padding: 1rem; }
     figure { margin: 0 0 2rem 0; }
-    img { width: 100%; height: auto; display: block; border-radius: 6px; loading: lazy; }
+    /* loading="lazy" is set in script, but it's good to keep image essentials here */
+    img { width: 100%; height: auto; display: block; border-radius: 6px; } 
     figcaption { margin-top: 0.4rem; }
     h2 { font-size: 1.05rem; font-weight: 500; margin: 0 0 0.1rem 0; }
     .meta { font-size: 0.85rem; color: #aaa; }
@@ -22,13 +23,13 @@
     const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTscIx1SHt5f_UZZo20nss_w-aFiXxIR2vZoPuJlLB_BRL0mM7AUMos3OurpLtzNbS0c2P6ft-4MgTt/pub?gid=559573632&single=true&output=csv";
     const CSV_SPLIT_REGEX = /,(?=(?:(?:[^"]*"){2})*[^"]*$)/; // Robust CSV split
     
-    // Define the required columns and map them to cleaner variable names
+    // Define the required columns: [CSV Header Name]: [Local Variable Name]
     const REQUIRED_COLS = {
-      EventTitle: 'title',
-      ImageID: 'fileId',
-      EventDate: 'date',
-      Location: 'venue',
-      PosterArtist: 'artist',
+      "EventTitle": 'title',
+      "ImageID": 'fileId',
+      "EventDate": 'date',
+      "Location": 'venue',
+      "PosterArtist": 'artist',
     };
 
     (async () => {
@@ -41,13 +42,14 @@
 
         if (rows.length < 2) return;
 
-        // 1. Map header indices dynamically (essential for lean robustness)
+        // 1. Map header indices dynamically to the short variable names (I)
         const header = rows[0].split(CSV_SPLIT_REGEX).map(h => h.replace(/"/g, '').trim());
-        const I = Object.fromEntries(
-          Object.keys(REQUIRED_COLS).map(colName => [REQUIRED_COLS[colName], header.indexOf(colName)])
-        );
         
-        // Ensure ImageID column exists
+        const I = {}; 
+        for (const [headerName, varName] of Object.entries(REQUIRED_COLS)) {
+            I[varName] = header.indexOf(headerName);
+        }
+        
         if (I.fileId < 0) return console.error("ImageID column not found.");
         
         // 2. Reduce the data rows into a single HTML string
@@ -57,7 +59,7 @@
           // Helper function for extraction (clean and remove quotes)
           const extract = (idx) => cols[idx]?.replace(/"/g, '').trim() || '';
 
-          const fileId = extract(I.fileId);
+          const fileId = extract(I.fileId); 
           if (!fileId) return acc; // Skip if no ID
 
           const title = extract(I.title);
@@ -72,7 +74,7 @@
           // Append to accumulator (using template literal for clean HTML)
           return acc + `
             <figure>
-              <img src="${imgUrl}" alt="${title}">
+              <img src="${imgUrl}" alt="${title}" loading="lazy">
               <figcaption>
                 <h2>${title}</h2>
                 <div class="meta">${meta}</div>
